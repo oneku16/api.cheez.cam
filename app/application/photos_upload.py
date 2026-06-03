@@ -117,8 +117,8 @@ def request_upload_url(
     db.refresh(photo)
 
     storage = StorageService()
-    upload_url = storage.create_presigned_upload_url(object_key, mime_type)
-    return photo, upload_url, {"Content-Type": mime_type}
+    upload_url = storage.create_presigned_upload_url(object_key)
+    return photo, upload_url, {}
 
 
 def complete_upload(

@@ -10,13 +10,18 @@ from app.core.config import get_settings
 @lru_cache
 def _sync_client():
     settings = get_settings()
+    if not settings.r2_access_key_id or not settings.r2_secret_access_key:
+        raise RuntimeError("R2 credentials are not configured (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY).")
     return boto3.client(
         "s3",
         endpoint_url=settings.r2_endpoint_url,
         aws_access_key_id=settings.r2_access_key_id,
         aws_secret_access_key=settings.r2_secret_access_key,
         region_name="auto",
-        config=Config(signature_version="s3v4"),
+        config=Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+        ),
     )
 
 
@@ -26,15 +31,12 @@ class StorageService:
         self.client = _sync_client()
         self.bucket = self.settings.r2_bucket_name
 
-    def create_presigned_upload_url(
-        self, object_key: str, content_type: str, expires_in: int = 900
-    ) -> str:
+    def create_presigned_upload_url(self, object_key: str, expires_in: int = 900) -> str:
         return self.client.generate_presigned_url(
             "put_object",
             Params={
                 "Bucket": self.bucket,
                 "Key": object_key,
-                "ContentType": content_type,
             },
             ExpiresIn=expires_in,
             HttpMethod="PUT",
@@ -80,10 +82,10 @@ class StorageService:
         return await asyncio.to_thread(self.head_object, object_key)
 
     async def create_presigned_upload_url_async(
-        self, object_key: str, content_type: str, expires_in: int = 900
+        self, object_key: str, expires_in: int = 900
     ) -> str:
         return await asyncio.to_thread(
-            self.create_presigned_upload_url, object_key, content_type, expires_in
+            self.create_presigned_upload_url, object_key, expires_in
         )
 
     async def create_presigned_read_url_async(
