@@ -37,7 +37,8 @@ def register(body: RegisterRequest, response: Response, db: Session = Depends(ge
     if db.query(User).filter(User.email == body.email).first():
         raise AppError("VALIDATION_ERROR", "Email already registered.", 400)
 
-    org = Organization(name=body.organization_name)
+    org_name = f"{body.full_name.strip()}'s workspace" if body.full_name.strip() else "Personal"
+    org = Organization(name=org_name)
     db.add(org)
     db.flush()
 

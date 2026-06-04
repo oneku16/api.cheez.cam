@@ -61,6 +61,7 @@ class Event(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     max_photos_per_guest: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    max_guests: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
     uploads_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     theme_color: Mapped[str | None] = mapped_column(String(32))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

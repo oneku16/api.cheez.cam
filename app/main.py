@@ -8,7 +8,7 @@ from app.domain.errors import AppError
 
 settings = get_settings()
 
-app = FastAPI(title="event.camera API", version="0.1.0")
+app = FastAPI(title="cheez API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,

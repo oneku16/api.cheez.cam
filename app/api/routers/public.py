@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.schemas import (
@@ -48,6 +49,7 @@ def get_public_event(
             description=event.description,
             rules=event.rules,
             max_photos_per_guest=event.max_photos_per_guest,
+            max_guests=event.max_guests,
             uploads_enabled=event.uploads_enabled,
         ),
         access=AccessOut(status=AccessStatus.ALLOWED),
@@ -76,6 +78,15 @@ def guest_session(
         .first()
     )
     if not guest:
+        guest_count = (
+            db.query(func.count(Guest.id)).filter(Guest.event_id == event.id).scalar() or 0
+        )
+        if guest_count >= event.max_guests:
+            raise AppError(
+                "GUEST_LIMIT_REACHED",
+                "This event has reached its guest limit.",
+                403,
+            )
         guest = Guest(event_id=event.id, device_id=body.device_id)
         db.add(guest)
     guest.last_seen_at = datetime.now(UTC)
