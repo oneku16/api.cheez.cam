@@ -31,7 +31,6 @@ class OrganizationOut(BaseModel):
 
 
 class RegisterRequest(BaseModel):
-    organization_name: str
     full_name: str
     email: EmailStr
     password: str
@@ -55,6 +54,7 @@ class EventCreate(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     max_photos_per_guest: int = Field(default=10, ge=1, le=25)
+    max_guests: int = Field(default=100, ge=1)
 
 
 class EventUpdate(BaseModel):
@@ -64,6 +64,7 @@ class EventUpdate(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     max_photos_per_guest: int | None = Field(default=None, ge=1, le=25)
+    max_guests: int | None = Field(default=None, ge=1)
     uploads_enabled: bool | None = None
     status: str | None = None
     theme_color: str | None = None
@@ -79,6 +80,7 @@ class EventOut(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     max_photos_per_guest: int
+    max_guests: int
     uploads_enabled: bool
     theme_color: str | None = None
 
@@ -122,6 +124,7 @@ class PublicEventOut(BaseModel):
     description: str | None = None
     rules: str | None = None
     max_photos_per_guest: int
+    max_guests: int
     uploads_enabled: bool
 
 

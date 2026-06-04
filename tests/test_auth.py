@@ -43,7 +43,6 @@ def test_register_and_me(client):
     r = client.post(
         "/api/auth/register",
         json={
-            "organization_name": "Test Org",
             "full_name": "Test User",
             "email": "test@example.com",
             "password": "password123",
@@ -55,4 +54,4 @@ def test_register_and_me(client):
 
     r2 = client.get("/api/auth/me")
     assert r2.status_code == 200
-    assert r2.json()["organization"]["name"] == "Test Org"
+    assert r2.json()["organization"]["name"] == "Test User's workspace"

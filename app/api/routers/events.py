@@ -47,6 +47,7 @@ def create_event(
         starts_at=body.starts_at,
         ends_at=body.ends_at,
         max_photos_per_guest=body.max_photos_per_guest,
+        max_guests=body.max_guests,
     )
     db.add(event)
     db.commit()
