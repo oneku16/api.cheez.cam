@@ -11,7 +11,7 @@ from app.api.schemas import (
     PublicEventOut,
     PublicEventResponse,
 )
-from app.application.access import evaluate_guest_access
+from app.application.access import evaluate_guest_access, is_final_upload_window
 from app.application.photos_upload import get_event_and_qr_by_slug_token
 from app.domain.enums import AccessStatus
 from app.domain.errors import AppError
@@ -36,7 +36,8 @@ def get_public_event(
         )
 
     result = evaluate_guest_access(db, event, qr)
-    if result.status != AccessStatus.ALLOWED:
+    final_upload = is_final_upload_window(event, qr)
+    if result.status != AccessStatus.ALLOWED and not final_upload:
         return PublicEventResponse(
             event=None,
             access=AccessOut(status=result.status, message=result.message),
@@ -48,6 +49,8 @@ def get_public_event(
             title=event.title,
             description=event.description,
             rules=event.rules,
+            ends_at=event.ends_at,
+            qr_valid_until=qr.valid_until,
             max_photos_per_guest=event.max_photos_per_guest,
             max_guests=event.max_guests,
             uploads_enabled=event.uploads_enabled,
@@ -65,7 +68,8 @@ def guest_session(
 ):
     event, qr = get_event_and_qr_by_slug_token(db, slug, token)
     result = evaluate_guest_access(db, event, qr)
-    if result.status != AccessStatus.ALLOWED:
+    final_upload = is_final_upload_window(event, qr)
+    if result.status != AccessStatus.ALLOWED and not final_upload:
         raise AppError(
             result.status.upper(),
             result.message or "Access denied.",
@@ -78,6 +82,12 @@ def guest_session(
         .first()
     )
     if not guest:
+        if final_upload:
+            raise AppError(
+                "EVENT_EXPIRED",
+                "This event has ended. Photo uploads are no longer available.",
+                403,
+            )
         guest_count = (
             db.query(func.count(Guest.id)).filter(Guest.event_id == event.id).scalar() or 0
         )

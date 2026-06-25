@@ -24,6 +24,12 @@ class AccessResult:
         self.message = message or ACCESS_MESSAGES.get(status)
 
 
+def _as_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 def evaluate_guest_access(
     db: Session,
     event: Event | None,
@@ -32,6 +38,7 @@ def evaluate_guest_access(
     now: datetime | None = None,
 ) -> AccessResult:
     now = now or datetime.now(UTC)
+    now = _as_aware_utc(now)
 
     if event is None or qr is None:
         return AccessResult(AccessStatus.NOT_FOUND)
@@ -45,19 +52,19 @@ def evaluate_guest_access(
     if not event.uploads_enabled:
         return AccessResult(AccessStatus.UPLOADS_DISABLED)
 
-    if event.starts_at and now < event.starts_at:
+    if event.starts_at and now < _as_aware_utc(event.starts_at):
         return AccessResult(AccessStatus.NOT_STARTED)
 
-    if event.ends_at and now > event.ends_at:
+    if event.ends_at and now > _as_aware_utc(event.ends_at):
         return AccessResult(AccessStatus.EXPIRED)
 
     if qr.status == QrStatus.REVOKED or qr.revoked_at is not None:
         return AccessResult(AccessStatus.REVOKED)
 
-    if qr.valid_from and now < qr.valid_from:
+    if qr.valid_from and now < _as_aware_utc(qr.valid_from):
         return AccessResult(AccessStatus.NOT_STARTED)
 
-    if qr.valid_until and now > qr.valid_until:
+    if qr.valid_until and now > _as_aware_utc(qr.valid_until):
         return AccessResult(AccessStatus.EXPIRED)
 
     if qr.status != QrStatus.ACTIVE:
@@ -66,12 +73,37 @@ def evaluate_guest_access(
     return AccessResult(AccessStatus.ALLOWED)
 
 
+def is_final_upload_window(
+    event: Event | None,
+    qr: EventQrCode | None,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    if event is None or qr is None:
+        return False
+    if event.deleted_at is not None or event.status == EventStatus.ARCHIVED:
+        return False
+    if event.status != EventStatus.ACTIVE or not event.uploads_enabled:
+        return False
+    if qr.status != QrStatus.ACTIVE or qr.revoked_at is not None:
+        return False
+
+    now = _as_aware_utc(now or datetime.now(UTC))
+    deadlines = [dt for dt in (event.ends_at, qr.valid_until) if dt is not None]
+    return any(_as_aware_utc(deadline) < now for deadline in deadlines)
+
+
 def require_guest_access(
     db: Session,
     event: Event | None,
     qr: EventQrCode | None,
+    *,
+    allow_final_upload: bool = False,
 ) -> AccessResult:
     result = evaluate_guest_access(db, event, qr)
+    if result.status != AccessStatus.ALLOWED and allow_final_upload:
+        if is_final_upload_window(event, qr):
+            return AccessResult(AccessStatus.ALLOWED)
     if result.status != AccessStatus.ALLOWED:
         code_map = {
             AccessStatus.NOT_FOUND: "EVENT_NOT_FOUND",
