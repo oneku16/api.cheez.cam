@@ -128,7 +128,14 @@ def upload_url(
 ):
     event, qr = get_event_and_qr_by_slug_token(db, slug, token)
     photo, upload_url, headers = request_upload_url(
-        db, event, qr, body.guest_id, body.filename, body.mime_type, body.size_bytes
+        db,
+        event,
+        qr,
+        body.guest_id,
+        body.filename,
+        body.mime_type,
+        body.size_bytes,
+        final_upload=body.final_upload,
     )
     return UploadUrlResponse(
         photo_id=photo.id,
@@ -147,7 +154,13 @@ def complete(
 ):
     event, qr = get_event_and_qr_by_slug_token(db, slug, token)
     photo, remaining = complete_upload(
-        db, event, qr, body.guest_id, body.photo_id, body.object_key
+        db,
+        event,
+        qr,
+        body.guest_id,
+        body.photo_id,
+        body.object_key,
+        final_upload=body.final_upload,
     )
     status = photo.status if photo.status != PhotoStatus.PROCESSING else PhotoStatus.PENDING
     return CompleteUploadResponse(

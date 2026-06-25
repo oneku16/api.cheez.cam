@@ -1,4 +1,5 @@
 import pytest
+from datetime import UTC, datetime, timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -6,7 +7,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.domain.enums import EventStatus, QrStatus
 from app.infrastructure.db.base import Base
-from app.infrastructure.db.models import Event, EventQrCode, Organization
+from app.infrastructure.db.models import Event, EventQrCode, Guest, Organization
 from app.infrastructure.db.session import get_db
 from app.main import app
 
@@ -94,3 +95,46 @@ def test_guest_limit_allows_returning_device(client, active_event_with_qr):
     r = client.post(url, json={"device_id": "device-a"})
     assert r.status_code == 200
     assert "guest_id" in r.json()
+
+
+def test_public_event_allows_returning_guest_after_qr_deadline_for_final_upload(client):
+    db = TestingSessionLocal()
+    org = Organization(name="Test Org")
+    db.add(org)
+    db.flush()
+
+    event = Event(
+        organization_id=org.id,
+        title="Party",
+        slug="party-grace",
+        status=EventStatus.ACTIVE,
+        max_photos_per_guest=10,
+        max_guests=2,
+        uploads_enabled=True,
+    )
+    db.add(event)
+    db.flush()
+
+    valid_until = datetime.now(UTC) - timedelta(seconds=30)
+    token = "expired-token-123"
+    qr = EventQrCode(
+        event_id=event.id,
+        token=token,
+        status=QrStatus.ACTIVE,
+        valid_until=valid_until,
+    )
+    db.add(qr)
+    db.add(Guest(event_id=event.id, device_id="device-a"))
+    db.commit()
+    slug = event.slug
+    db.close()
+
+    session_url = f"/api/public/events/{slug}/guest-session?token={token}"
+    session_res = client.post(session_url, json={"device_id": "device-a"})
+    assert session_res.status_code == 200
+
+    event_res = client.get(f"/api/public/events/{slug}?token={token}")
+    assert event_res.status_code == 200
+    body = event_res.json()
+    assert body["access"]["status"] == "allowed"
+    assert body["event"]["qr_valid_until"] is not None

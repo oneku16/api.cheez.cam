@@ -86,8 +86,10 @@ def request_upload_url(
     filename: str,
     mime_type: str,
     size_bytes: int,
+    *,
+    final_upload: bool = False,
 ) -> tuple[Photo, str, dict]:
-    require_guest_access(db, event, qr)
+    require_guest_access(db, event, qr, allow_final_upload=final_upload)
     mime_type = normalize_mime_type(mime_type, filename)
     validate_file_metadata(mime_type, size_bytes)
 
@@ -128,8 +130,10 @@ def complete_upload(
     guest_id: uuid.UUID,
     photo_id: uuid.UUID,
     object_key: str,
+    *,
+    final_upload: bool = False,
 ) -> tuple[Photo, int]:
-    require_guest_access(db, event, qr)
+    require_guest_access(db, event, qr, allow_final_upload=final_upload)
 
     photo = (
         db.query(Photo)

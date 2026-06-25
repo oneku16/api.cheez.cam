@@ -2,6 +2,7 @@ import secrets
 import uuid
 from datetime import UTC, datetime
 from io import BytesIO
+from urllib.parse import urlencode
 
 import qrcode
 from fastapi import APIRouter, Depends
@@ -21,7 +22,8 @@ settings = get_settings()
 
 
 def _guest_url(event: Event, token: str) -> str:
-    return f"{settings.frontend_base_url}/e/{event.slug}?token={token}"
+    query = urlencode({"token": token, "camera": "1"})
+    return f"{settings.frontend_base_url}/e/{event.slug}?{query}"
 
 
 def _get_active_qr(db: Session, event_id: uuid.UUID) -> EventQrCode | None:

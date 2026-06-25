@@ -123,6 +123,8 @@ class PublicEventOut(BaseModel):
     title: str
     description: str | None = None
     rules: str | None = None
+    ends_at: datetime | None = None
+    qr_valid_until: datetime | None = None
     max_photos_per_guest: int
     max_guests: int
     uploads_enabled: bool
@@ -148,6 +150,7 @@ class UploadUrlRequest(BaseModel):
     filename: str
     mime_type: str
     size_bytes: int
+    final_upload: bool = False
 
 
 class UploadUrlResponse(BaseModel):
@@ -161,6 +164,7 @@ class CompleteUploadRequest(BaseModel):
     guest_id: uuid.UUID
     photo_id: uuid.UUID
     object_key: str
+    final_upload: bool = False
 
 
 class CompleteUploadResponse(BaseModel):
