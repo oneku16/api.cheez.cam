@@ -137,12 +137,14 @@ class PublicEventResponse(BaseModel):
 
 class GuestSessionRequest(BaseModel):
     device_id: str
+    guest_name: str | None = Field(default=None, max_length=100)
 
 
 class GuestSessionResponse(BaseModel):
     guest_id: uuid.UUID
     uploaded_count: int
     remaining_count: int
+    guest_name: str | None = None
 
 
 class UploadUrlRequest(BaseModel):
@@ -179,6 +181,7 @@ class PhotoOut(BaseModel):
     thumbnail_url: str | None = None
     preview_url: str | None = None
     created_at: datetime
+    author_name: str | None = None
 
     model_config = {"from_attributes": True}
 

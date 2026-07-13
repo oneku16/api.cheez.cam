@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_event_for_user
 from app.api.schemas import (
@@ -37,6 +37,20 @@ from app.infrastructure.storage.r2 import StorageService
 router = APIRouter(tags=["photos"])
 
 
+def _photo_out(photo: Photo, thumb_url: str | None, preview_url: str | None) -> PhotoOut:
+    author_name = None
+    if photo.guest is not None:
+        author_name = photo.guest.display_name
+    return PhotoOut(
+        id=photo.id,
+        status=photo.status,
+        thumbnail_url=thumb_url,
+        preview_url=preview_url,
+        created_at=photo.created_at,
+        author_name=author_name,
+    )
+
+
 @router.get("/api/events/{event_id}/photos", response_model=PhotoListResponse)
 def list_photos(
     event: Event = Depends(get_event_for_user),
@@ -45,7 +59,7 @@ def list_photos(
     limit: int = Query(default=50, le=100),
     cursor: str | None = None,
 ):
-    q = db.query(Photo).filter(
+    q = db.query(Photo).options(joinedload(Photo.guest)).filter(
         Photo.event_id == event.id,
         Photo.deleted_at.is_(None),
         Photo.completed_at.isnot(None),
@@ -78,15 +92,7 @@ def list_photos(
                 preview_url = storage.create_presigned_read_url(preview_key)
         except Exception:
             pass
-        out_items.append(
-            PhotoOut(
-                id=p.id,
-                status=p.status,
-                thumbnail_url=thumb_url,
-                preview_url=preview_url,
-                created_at=p.created_at,
-            )
-        )
+        out_items.append(_photo_out(p, thumb_url, preview_url))
 
     next_cursor = None
     if has_more and items:
@@ -184,15 +190,7 @@ def list_guest_photos_route(
     out_items: list[PhotoOut] = []
     for p in photos:
         thumb_url, preview_url = photo_to_urls(p, storage)
-        out_items.append(
-            PhotoOut(
-                id=p.id,
-                status=p.status,
-                thumbnail_url=thumb_url,
-                preview_url=preview_url,
-                created_at=p.created_at,
-            )
-        )
+        out_items.append(_photo_out(p, thumb_url, preview_url))
     return PhotoListResponse(items=out_items)
 
 

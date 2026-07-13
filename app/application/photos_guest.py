@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.application.access import require_guest_access
 from app.application.photos_admin import _apply_photo_deletions
@@ -25,6 +25,7 @@ def list_guest_photos(db: Session, event: Event, guest_id: uuid.UUID) -> list[Ph
     _verify_guest(db, event.id, guest_id)
     return (
         db.query(Photo)
+        .options(joinedload(Photo.guest))
         .filter(
             Photo.event_id == event.id,
             Photo.guest_id == guest_id,

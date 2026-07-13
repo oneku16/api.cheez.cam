@@ -21,6 +21,15 @@ from app.infrastructure.db.session import get_db
 router = APIRouter(prefix="/api/public/events", tags=["public"])
 
 
+def _normalize_guest_name(guest_name: str | None) -> str | None:
+    if guest_name is None:
+        return None
+    trimmed = guest_name.strip()
+    if not trimmed:
+        return None
+    return trimmed[:100]
+
+
 @router.get("/{slug}", response_model=PublicEventResponse)
 def get_public_event(
     slug: str,
@@ -81,12 +90,20 @@ def guest_session(
         .filter(Guest.event_id == event.id, Guest.device_id == body.device_id)
         .first()
     )
+    normalized_name = _normalize_guest_name(body.guest_name)
+
     if not guest:
         if final_upload:
             raise AppError(
                 "EVENT_EXPIRED",
                 "This event has ended. Photo uploads are no longer available.",
                 403,
+            )
+        if not normalized_name:
+            raise AppError(
+                "GUEST_NAME_REQUIRED",
+                "Guest name is required.",
+                400,
             )
         guest_count = (
             db.query(func.count(Guest.id)).filter(Guest.event_id == event.id).scalar() or 0
@@ -97,8 +114,23 @@ def guest_session(
                 "This event has reached its guest limit.",
                 403,
             )
-        guest = Guest(event_id=event.id, device_id=body.device_id)
+        guest = Guest(
+            event_id=event.id,
+            device_id=body.device_id,
+            display_name=normalized_name,
+        )
         db.add(guest)
+    elif not guest.display_name:
+        if not normalized_name:
+            raise AppError(
+                "GUEST_NAME_REQUIRED",
+                "Guest name is required.",
+                400,
+            )
+        guest.display_name = normalized_name
+    elif normalized_name:
+        guest.display_name = normalized_name
+
     guest.last_seen_at = datetime.now(UTC)
     db.commit()
     db.refresh(guest)
@@ -108,4 +140,5 @@ def guest_session(
         guest_id=guest.id,
         uploaded_count=guest.uploaded_count,
         remaining_count=remaining,
+        guest_name=guest.display_name,
     )
